@@ -1,0 +1,145 @@
+---
+title: "RNA-seq workshop (quantification and differential expression analysis)"
+author: "Yue Jiang"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r prepare_table, include=FALSE, eval=FALSE}
+ctrl_A <- read.table("counts/GSM1435022_YJMi4counts.txt", header=FALSE, sep="\t", stringsAsFactors=FALSE)
+ctrl_B <- read.table("counts/GSM1435024_YJ1counts.txt", header=FALSE, sep="\t", stringsAsFactors=FALSE)
+ctrl_C <- read.table("counts/GSM1435026_YJ3counts.txt", header=FALSE, sep="\t", stringsAsFactors=FALSE)
+stim_A <- read.table("counts/GSM1435023_YJMi5counts.txt", header=FALSE, sep="\t", stringsAsFactors=FALSE)
+stim_B <- read.table("counts/GSM1435025_YJ2counts.txt", header=FALSE, sep="\t", stringsAsFactors=FALSE)
+stim_C <- read.table("counts/GSM1435027_YJ6counts.txt", header=FALSE, sep="\t", stringsAsFactors=FALSE)
+
+count_table <- data.frame(Gene=ctrl_A[, 1],
+                          Ctrl_A=round(ctrl_A[, 21]),
+                          Ctrl_B=round(ctrl_B[, 21]),
+                          Ctrl_C=round(ctrl_C[, 21]),
+                          Stim_A=round(stim_A[, 21]),
+                          Stim_B=round(stim_B[, 21]),
+                          Stim_C=round(stim_C[, 21]))
+
+write.table(count_table, "counts/count_table.tab", sep="\t", row.names=FALSE)
+```
+
+## Set up environment
+Let's set up the environment where we work. If a library hasn't been installed yet, you can install it using e.g. `install.packages("ggplot2")`.
+
+- set working directory
+- load libraries
+- custom plot theme
+
+```{r setup, message=FALSE, warning=FALSE}
+setwd("~/Dropbox (AbVitro)/rna-seq/")
+
+library(ggplot2)
+library(ggrepel)
+library(dplyr)
+library(tidyr)
+library(DESeq2)
+library(grid)
+library(gridExtra)
+library(knitr)
+
+# just a theme for plotting! don't worry about it!
+my_theme <- function(base_size=14) {
+  (theme_bw(base_size = base_size)
+    + theme(plot.title = element_text(face = "bold",
+                                      size = rel(1.2), hjust = 0.5),
+            text = element_text(),
+            panel.background = element_rect(colour = NA),
+            plot.background = element_rect(colour = NA),
+            panel.border = element_rect(colour = NA),
+            axis.title = element_text(face = "bold",size = rel(1)),
+            axis.title.y = element_text(angle=90,vjust =2),
+            axis.title.x = element_text(vjust = -0.2),
+            axis.text = element_text(), 
+            axis.ticks = element_line(),
+            panel.grid.major = element_line(colour="#f0f0f0"),
+            panel.grid.minor = element_blank(),
+            legend.key = element_rect(colour = NA)
+    )
+  )
+}
+```
+
+## Read in count table
+Differential expression analysis softwares usually ask that you have a table of your expression data. Each software may have slightly different requirements in the way they want their input ddata prepared. For DESeq2, we need to have a data frame with expression levels in counts (integer).
+
+- Each row is a gene
+- Each column is a sample
+
+```{r load_data}
+count_df <- read.table("counts/count_table.tab", sep="\t", header=TRUE, stringsAsFactors=FALSE)
+```
+
+This is what the count table looks like (showing top 10 rows, 23481 rows total).
+```{r, echo=FALSE}
+kable(count_df[1:10, ])
+```
+
+## Make your design table
+Design table specifies experiment conditions for your samples. In this experiment, we have 6 samples with treatment (control vs stimulated) and littermate information (A, B, C). We are interested in genes differentially expressed in stimulated samples as compared to the control.
+
+```{r design}
+design_df <- data.frame("Sample"=c("Ctrl_A", "Ctrl_B", "Ctrl_C", "Stim_A", "Stim_B", "Stim_C"),
+                        "Treatment"=c("control", "control", "control", "stimulated", "stimulated", "stimulated"),
+                        "Litter"=c("A", "B", "C", "A", "B", "C"))
+```
+
+The design table looks like this.
+```{r, echo=FALSE}
+kable(design_df)
+```
+
+## Differential expression analysis
+- to be general, we use DESeq2 here.
+- would be slightly better to use EdgeR, allowing for modeling litter as random effect
+
+```{r de}
+
+```
+
+## Visualizing DE result
+For clarity, let's make a data frame to hold the data for plotting. The data frame will contain the following columns:
+- Gene name
+- base mean expression in control samples
+- base mean expression in stimulated samples
+- log2 fold change
+- FDR corrected p-value
+- An annotation column indicating whether this gene is an OR
+- Another annotation column indicating whether this gene is differentially expressed
+
+### Scatter plot
+We can plot the base mean of stimulated vs control, and highlight genes of interest (for example, all odorant receptor genes).
+
+```{r de_scatter}
+
+```
+
+### Volcano plot
+Another popular way to visualize DE analysis is to plot log scaled p-values against log scaled fold change.
+
+```{r de_volcano}
+
+```
+
+## Clustering
+- hierarchical clustering
+- PCA
+
+```{r clustering}
+
+```
+
+## Gene ontology
+- Are certain pathways enriched in the DE genes?
+
+```{r go}
+
+```
