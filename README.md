@@ -1,4 +1,8 @@
 # AChemS RNA-seq workshop
-This repo contains input file and R code for an RNA-seq workshop I'm helping with. The input count table is from here: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE59324
+This repo contains input file and R code for an RNA-seq workshop I'm helping with.
 
-And the basic idea is to test for differentially expressed genes accounting for litter effects.
+The input count table is from here: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE59324
+
+The analysis output can be viewed here: https://rawgit.com/Yue-Jiang/achems/master/rna-seq_demo.html
+
+The basic idea is to test for differentially expressed genes accounting for litter effects. This tutorial covers basics of differential expression analysis starting from the count table.
