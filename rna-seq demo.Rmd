@@ -1,5 +1,6 @@
 ---
-title: "RNA-seq workshop (quantification and differential expression analysis)"
+title: "RNA-seq workshop"
+subtitle: "quantification and differential expression analysis"
 author: "Yue Jiang"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
@@ -28,9 +29,13 @@ write.table(count_table, "counts/count_table.tab", sep="\t", row.names=FALSE)
 ```
 
 ## Set up environment
-Let's set up the environment where we work.Let's assume you have a folder on your desktop called `achems`, and we will use that as our working directory. We will download our input file (the count table) there.
+Let's set up the environment where we work. Let's assume that you have a folder on your desktop called `achems`, and we will use that folder as our working directory. We will download our input file (the count table) to that folder.
 
-If a library hasn't been installed yet, you can install it using e.g. `install.packages("ggplot2")`. 
+If a library hasn't been installed yet, you can install it using e.g. `install.packages("ggplot2")`. For bioconductor libraries, use `biocLite` instead, e.g.
+```{r eval=FALSE}
+source("https://bioconductor.org/biocLite.R")
+biocLite("DESeq2")
+```
 
 - set working directory
 - download count table
@@ -77,7 +82,7 @@ my_theme <- function(base_size=14) {
 ```
 
 ## Read in count table
-Differential expression analysis softwares usually ask that you have a table of your expression data. Each software may have slightly different requirements in the way they want their input ddata prepared. For DESeq2, we need to have a data frame with expression levels in counts (integer).
+Differential expression analysis softwares usually ask that you have a table of your expression data. Each software may have slightly different requirements in the way they want their input data prepared. For DESeq2, we need to have a data frame with expression levels in counts (integer).
 
 - Each row is a gene
 - Each column is a sample
@@ -219,7 +224,7 @@ kable(sim_go@result)
 Sometimes we want to do exploratory analysis by clustering samples based on RNA expression profiles and see if the clustering makes biological sense. Let's see a few examples.
 
 ### hierarchical clustering
-Let's cluster the samples based on OR expression. Well, they actually cluster by litter... So it's important to model that as we did before!
+Let's cluster the samples based on OR expression. Well, they actually cluster by litter... So it's important to account for litter effect as we did before!
 
 ```{r clustering}
 orCountData <- countData[grepl("^Olfr", rownames(countData)) & rowSums(countData) > 5, ]
@@ -240,7 +245,7 @@ superheat::superheat(t(log1p(orCountData)),
 ### PCA
 Just to showcase some PCA visualization. 
 ```{r pca}
-or_pca <- data.frame(prcomp(t(log1p(orCountData)))$x)
+or_pca <- data.frame(prcomp(t(log1p(orCountData)), scale.=TRUE)$x)
 plot_ly(or_pca, x = ~PC1, y = ~PC2, z= ~PC3, text = rownames(or_pca)) %>%
   add_markers() %>%
   add_text() %>%
