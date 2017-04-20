@@ -251,3 +251,9 @@ plot_ly(or_pca, x = ~PC1, y = ~PC2, z= ~PC3, text = rownames(or_pca)) %>%
   add_text() %>%
   layout(showlegend = FALSE)
 ```
+
+## Session info
+Keep note of what packages were used and their versions for future reference.
+```{r sessioninfo, results='markup'}
+devtools::session_info()
+```
