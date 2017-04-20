@@ -1,5 +1,5 @@
 # AChemS RNA-seq workshop
-This repo contains input file and R code for an RNA-seq workshop I'm helping with.
+This repo contains input file and R code for [an RNA-seq workshop I'm helping with at AChemS 2017](https://achems2017.org/web/program-workshops.php).
 
 The input count table is from here: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE59324
 
