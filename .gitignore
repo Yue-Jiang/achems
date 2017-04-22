@@ -1,3 +1,4 @@
 .Rhistory
 rna-seq_demo_cache/*
 rna-seq_demo_files/*
+envs/*
