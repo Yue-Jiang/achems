@@ -119,8 +119,8 @@ Design table specifies experiment conditions for your samples. In this experimen
 
 ```{r design}
 targets <- data.frame("Sample"=c("Ctrl_A", "Ctrl_B", "Ctrl_C", "Stim_A", "Stim_B", "Stim_C"),
-                        "Treatment"=c("control", "control", "control", "stimulated", "stimulated", "stimulated"),
-                        "Litter"=c("A", "B", "C", "A", "B", "C"))
+                      "Treatment"=c("control", "control", "control", "stimulated", "stimulated", "stimulated"),
+                      "Litter"=c("A", "B", "C", "A", "B", "C"))
 Litter <- factor(targets$Litter)
 Treat <- factor(targets$Treatment, levels=c("control","stimulated"))
 ```
@@ -266,6 +266,17 @@ ggplot(or_de_df, aes(log2FoldChange, log10(FDR), color=DE)) +
   scale_y_reverse() +
   scale_color_manual(values=c("red", "grey80")) +
   my_theme()
+```
+
+Or, plotly allows some interactivity - e.g. displaying text upon hovering.
+
+```{r de_volcano_hover, fig.width=5, fig.height=4, warning=FALSE}
+p <- ggplot(or_de_df, aes(log2FoldChange, log10(FDR), color=DE)) +
+  geom_point(aes(text=Gene), alpha=0.8, size=1) +
+  scale_y_reverse() +
+  scale_color_manual(values=c("red", "grey80")) +
+  my_theme()
+ggplotly(p)
 ```
 
 # Gene ontology
