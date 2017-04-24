@@ -137,7 +137,7 @@ Let's perform differential expression analysis using edgeR. Remember that we are
 design_nolitter <- model.matrix(~Treat)
 ```
 
-The design looks like this.
+The design without litter information looks like this.
 ```{r echo=FALSE}
 kable(design_nolitter)
 ```
@@ -242,7 +242,7 @@ grid.arrange(p1, p2, ncol=1)
 ## Volcano plot
 Another popular way to visualize DE analysis is to plot log scaled p-values against log scaled fold change. We can customize the volcano plot by labeling the ORs that are enriched in stimulated samples.
 
-```{r de_volcano, fig.width=8, fig.height=8}
+```{r de_volcano, fig.width=10, fig.height=8}
 ggplot(or_de_df, aes(log2FoldChange, log10(FDR), color=DE)) +
   geom_point(alpha=0.8, size=1) +
   geom_text_repel(data=or_de_df %>% filter(DE == "Enriched (p<=0.05)"), aes(label=Gene), segment.colour="grey50", color="grey10") +
@@ -253,13 +253,14 @@ ggplot(or_de_df, aes(log2FoldChange, log10(FDR), color=DE)) +
 
 Well, that's probably not that good an idea. Let's label M72 (Olfr160) only.
 
-```{r de_volcano_m72, fig.width=5, fig.height=5}
+```{r de_volcano_m72, fig.width=5, fig.height=4}
 ggplot(or_de_df, aes(log2FoldChange, log10(FDR), color=DE)) +
   geom_point(alpha=0.8, size=1) +
   geom_text_repel(data=or_de_df %>% filter(Gene == "Olfr160"),
                   label="M72",
                   min.segment.length=unit(0, 'lines'),
-                  nudge_x=3,
+                  nudge_x=-4,
+                  nudge_y=2,
                   segment.colour="grey50",
                   color="grey10") +
   scale_y_reverse() +
