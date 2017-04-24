@@ -5,6 +5,7 @@ author: "Yue Jiang"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   html_document:
+    number_sections: true
     toc: true
     toc_float: true
 ---
@@ -28,13 +29,21 @@ count_table <- data.frame(Gene=ctrl_A[, 1],
 write.table(count_table, "counts/count_table.tab", sep="\t", row.names=FALSE)
 ```
 
-## Set up environment
+# What are these samples?
+Phosphorylated ribosome-IP captured mRNA from mouse olfactory epithelium. One group of mice smelled acetophenone for an hour, the other group did not. Because ribosome phosphorylation only occurs in activated neurons, we expect to find odorant receptors responding to acetophenone by looking for over-represented mRNA transcripts in stimulated samples.
+
+```{r, fig.retina=NULL, echo=FALSE}
+knitr::include_graphics("https://raw.githubusercontent.com/Yue-Jiang/achems/master/workflow.png")
+```
+(For details, see http://www.nature.com/neuro/journal/v18/n10/abs/nn.4104.html)
+
+# Set up environment
 Let's set up the environment where we work. Let's assume that you have a folder on your desktop called `achems`, and we will use that folder as our working directory. We will download our input file (the count table) to that folder.
 
 If a library hasn't been installed yet, you can install it using e.g. `install.packages("ggplot2")`. For bioconductor libraries, use `biocLite` instead, e.g.
 ```{r eval=FALSE}
 source("https://bioconductor.org/biocLite.R")
-biocLite("DESeq2")
+biocLite("edgeR")
 ```
 
 - set working directory
@@ -50,7 +59,7 @@ library(ggplot2)
 library(ggrepel)
 library(dplyr)
 library(tidyr)
-library(DESeq2)
+library(edgeR)
 library(grid)
 library(gridExtra)
 library(knitr)
@@ -81,8 +90,8 @@ my_theme <- function(base_size=14) {
 }
 ```
 
-## Read in count table
-Differential expression analysis softwares usually ask that you have a table of your expression data. Each software may have slightly different requirements in the way they want their input data prepared. For DESeq2, we need to have a data frame with expression levels in counts (integer).
+# Read in count table
+Differential expression analysis softwares usually ask that you have a table of your expression data. Each software may have slightly different requirements in the way they want their input data prepared. Usually we start with a data frame with expression levels in counts (integer).
 
 - Each row is a gene
 - Each column is a sample
@@ -96,50 +105,86 @@ This is what the count table looks like (showing top 10 rows, 23481 rows total).
 kable(count_df[1:10, ])
 ```
 
-## Make your design table
+EdgeR asks that your input is a matrix.
+```{r count_matrix}
+countData <- as.matrix(count_df[, -1])
+rownames(countData) <- count_df$Gene
+# filter out genes lowly expressed, this is an arbitrary cutoff
+counts <- countData[ rowSums(countData) > 5, ]
+y <- DGEList(counts=counts)
+```
+
+# Make your design table
 Design table specifies experiment conditions for your samples. In this experiment, we have 6 samples with treatment (control vs stimulated) and littermate information (A, B, C). We are interested in genes differentially expressed in stimulated samples as compared to the control.
 
 ```{r design}
-design_df <- data.frame("Sample"=c("Ctrl_A", "Ctrl_B", "Ctrl_C", "Stim_A", "Stim_B", "Stim_C"),
+targets <- data.frame("Sample"=c("Ctrl_A", "Ctrl_B", "Ctrl_C", "Stim_A", "Stim_B", "Stim_C"),
                         "Treatment"=c("control", "control", "control", "stimulated", "stimulated", "stimulated"),
                         "Litter"=c("A", "B", "C", "A", "B", "C"))
+Litter <- factor(targets$Litter)
+Treat <- factor(targets$Treatment, levels=c("control","stimulated"))
 ```
 
-The design table looks like this.
+The targets table (the table you made, more human readable) looks like this.
 ```{r, echo=FALSE}
-kable(design_df)
+kable(targets)
 ```
 
-## Differential expression analysis
-Let's perform differential expression analysis using DESeq2. Remember that we are only interested in the effect of treatment. The litter effect is included in the model to absorb the variance explained by litter so that we get better sensitivity. It would be slightly better to use EdgeR, where a mixed effect model is implemented, allowing for modeling litter as random effect, but we won't go into the details there.
+# Differential expression analysis
+Let's perform differential expression analysis using edgeR. Remember that we are only interested in the effect of treatment. The litter or batch effect should be included in the model as a random effect to absorb the variance explained by batch so that we get better sensitivity. If we didn't have litter matched experiment design, we can only compare control and treatment as two uniform groups (which is also the most common use case, so let's do it anyways).
 
-- prepare input data as DESeq2 expects
-- run DESeq2 following the manual
+```{r}
+design_nolitter <- model.matrix(~Treat)
+```
+
+The design looks like this.
+```{r echo=FALSE}
+kable(design_nolitter)
+```
+
+```{r de_nolitter}
+y_nolitter <- estimateDisp(y, design_nolitter)
+fit_nolitter <- glmFit(y_nolitter, design_nolitter)
+lrt_nolitter <- glmLRT(fit_nolitter)
+de_nolitter <- topTags(lrt_nolitter, n=dim(lrt_nolitter)[1])$table
+```
+
+Without using litter (batch) information, we only recover 6 DE genes (FDR < 0.05).
+
+```{r}
+kable(de_nolitter[de_nolitter$FDR < 0.05, ])
+```
+
+Now let's do it properly, by explicitly accounting for litter effects.
+```{r}
+design <- model.matrix(~Litter + Treat)
+```
+Now the design looks like this.
+```{r echo=FALSE}
+kable(design)
+```
 
 ```{r de, cache=TRUE, message=FALSE, warning=FALSE}
-countData <- as.matrix(count_df[, -1])
-rownames(countData) <- count_df$Gene
-colData <- design_df
-rownames(colData) <- colData$Sample
-# make sure sample orders are the same
-countData <- countData[, rownames(colData)]
-
-dds <- DESeqDataSetFromMatrix(countData = countData,
-                              colData = colData,
-                              design = ~ Treatment + Litter)
-# filter out genes lowly expressed, this is an arbitrary cutoff
-dds <- dds[ rowSums(counts(dds)) > 5, ]
-dds <- DESeq(dds)
-
-de <- results(dds, contrast=c("Treatment", "stimulated", "control"))
+y <- estimateGLMCommonDisp(y,design)
+y <- estimateGLMTrendedDisp(y,design)
+y <- estimateGLMTagwiseDisp(y,design)
+fit <- glmFit(y, design)
+lrt <- glmLRT(fit)
+de <- topTags(lrt,n=dim(lrt)[1])$table
 ```
 
-Then we get the DE result. Here are the top 10 most DE genes.
+Now we get better sensitivity!
+```{r}
+# number of DE genes now
+sum(de$FDR < 0.05)
+```
+
+Here are the top 10 most DE genes.
 ```{r top_de}
-kable(de[order(de$padj)[1:10], ])
+kable(de[order(de$FDR)[1:10], ])
 ```
 
-## Visualizing DE result
+# Visualizing DE result
 For clarity, let's make a data frame to hold the data for plotting. The data frame will contain the following columns:
 
 - Gene name
@@ -149,60 +194,69 @@ For clarity, let's make a data frame to hold the data for plotting. The data fra
 - An annotation column indicating whether this gene is an OR
 - Another annotation column indicating whether this gene is differentially expressed
 
-In the original paper, the FDR correction is performed on odorant receptor genes only. For simplicity we skip that.
-
 ```{r de_df}
 de_df <- data.frame("Gene"=rownames(de),
-                    "baseMean"=de$baseMean,
-                    "log2FoldChange"=de$log2FoldChange,
-                    "pAdj"=de$padj) %>%
-  # fill N/A adjusted p-values with 1's
-  replace_na(list(pAdj=1)) %>%
+                    "logCPM"=de$logCPM,
+                    "log2FoldChange"=de$logFC,
+                    "FDR"=de$FDR) %>%
   # add an annotation column indicating whether this gene is an OR
   mutate(Annotation=case_when(grepl("^Olfr", .$Gene) ~ "Odorant receptor",
                               TRUE ~ "Other genes")) %>%
   # add another annotation column indicating whether gene is enriched / decreased / not DE
-  mutate(DE=case_when(.$pAdj <= 0.05 & .$log2FoldChange > 0 ~ "Enriched (p<=0.05)",
-                      .$pAdj <= 0.05 & .$log2FoldChange < 0 ~ "Decreased (p<=0.05)",
+  mutate(DE=case_when(.$FDR <= 0.05 & .$log2FoldChange > 0 ~ "Enriched (p<=0.05)",
+                      .$FDR <= 0.05 & .$log2FoldChange < 0 ~ "Decreased (p<=0.05)",
                       TRUE ~ "p>0.05"))
 ```
 
-### MA plot
+For the purpose of this study, we are primarily interested in differentially expressed ORs only. As such, we should restrict the FDR correction to OR genes only, otherwise we are losing some sensitivity.
+```{r or_de_df}
+or_de_df <- data.frame("Gene"=rownames(de),
+                    "logCPM"=de$logCPM,
+                    "log2FoldChange"=de$logFC,
+                    "pvalue"=de$PValue) %>%
+  # only keep ORs (genes starting with Olfr)
+  filter(grepl("^Olfr", Gene)) %>%
+  # fill N/A adjusted p-values with 1's
+  mutate(FDR=p.adjust(pvalue, method="BH")) %>%
+  # add another annotation column indicating whether gene is enriched / decreased / not DE
+  mutate(DE=case_when(.$FDR <= 0.05 & .$log2FoldChange > 0 ~ "Enriched (p<=0.05)",
+                      TRUE ~ "Others"))
+```
+
+## MA plot
 An MA plot is plotting the log2 fold change vs mean expression level.
 We can customize the MA plot by highlighting genes of interest (for example, all odorant receptor genes).
 
 ```{r de_ma, fig.width=6, fig.height=6}
-p1 <- ggplot(de_df, aes(baseMean, log2FoldChange, color=DE)) +
+p1 <- ggplot(de_df %>% arrange(desc(FDR)), aes(logCPM, log2FoldChange, color=DE)) +
   geom_point(alpha=0.8, size=1) +
-  scale_x_log10() +
   scale_color_manual(values=c("forestgreen", "red", "grey80")) +
   my_theme()
-p2 <- ggplot(de_df %>% arrange(desc(Annotation)), aes(baseMean, log2FoldChange, color=Annotation)) +
+p2 <- ggplot(de_df %>% arrange(desc(Annotation)), aes(logCPM, log2FoldChange, color=Annotation)) +
   geom_point(alpha=0.8, size=1) +
-  scale_x_log10() +
   scale_color_manual(values=c("red", "grey80")) +
   my_theme()
 grid.arrange(p1, p2, ncol=1)
 ```
 
-### Volcano plot
+## Volcano plot
 Another popular way to visualize DE analysis is to plot log scaled p-values against log scaled fold change. We can customize the volcano plot by labeling the ORs that are enriched in stimulated samples.
 
 ```{r de_volcano, fig.width=6, fig.height=8}
-ggplot(de_df, aes(log2FoldChange, log10(pAdj), color=DE)) +
+ggplot(or_de_df, aes(log2FoldChange, log10(FDR), color=DE)) +
   geom_point(alpha=0.8, size=1) +
-  geom_text_repel(data=de_df %>% filter(Annotation == "Odorant receptor" & DE == "Enriched (p<=0.05)"), aes(label=Gene), segment.colour="grey50", color="grey10") +
+  geom_text_repel(data=or_de_df %>% filter(DE == "Enriched (p<=0.05)"), aes(label=Gene), segment.colour="grey50", color="grey10") +
   scale_y_reverse() +
-  scale_color_manual(values=c("forestgreen", "red", "grey80")) +
+  scale_color_manual(values=c("red", "grey80")) +
   my_theme()
 ```
 
-## Gene ontology
+# Gene ontology
 Are certain pathways enriched in the DE genes?
 
 ```{r go, cache=TRUE}
-de_genes <- as.character(filter(de_df, pAdj <= 0.05)$Gene)
-background_genes <- as.character(filter(de_df, baseMean >= 50)$Gene)
+de_genes <- as.character(filter(de_df, FDR <= 0.05)$Gene)
+background_genes <- as.character(filter(de_df, logCPM >= log2(10))$Gene)
 go <- enrichGO(gene=de_genes,
                universe=background_genes,
                OrgDb = org.Mm.eg.db, keytype = 'SYMBOL',
@@ -220,10 +274,10 @@ sim_go <- simplify(go, cutoff = 0.7, by = "p.adjust", select_fun = min, measure 
 kable(sim_go@result)
 ```
 
-## Clustering
+# Clustering
 Sometimes we want to do exploratory analysis by clustering samples based on RNA expression profiles and see if the clustering makes biological sense. Let's see a few examples.
 
-### hierarchical clustering
+## hierarchical clustering
 Let's cluster the samples based on OR expression. Well, they actually cluster by litter... So it's important to account for litter effect as we did before!
 
 ```{r clustering}
@@ -242,7 +296,7 @@ superheat::superheat(t(log1p(orCountData)),
                      legend=FALSE)
 ```
 
-### PCA
+## PCA
 Just to showcase some PCA visualization. 
 ```{r pca}
 or_pca <- data.frame(prcomp(t(log1p(orCountData)), scale.=TRUE)$x)
@@ -252,7 +306,7 @@ plot_ly(or_pca, x = ~PC1, y = ~PC2, z= ~PC3, text = rownames(or_pca)) %>%
   layout(showlegend = FALSE)
 ```
 
-## Session info
+# Session info
 Keep note of what packages were used and their versions for future reference.
 ```{r sessioninfo, results='markup'}
 devtools::session_info()
