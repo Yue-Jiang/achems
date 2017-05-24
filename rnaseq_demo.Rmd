@@ -131,7 +131,7 @@ kable(targets)
 ```
 
 # Differential expression analysis
-Let's perform differential expression analysis using edgeR. Remember that we are only interested in the effect of treatment. The litter or batch effect should be included in the model as a random effect to absorb the variance explained by batch so that we get better sensitivity. If we didn't have litter matched experiment design, we can only compare control and treatment as two homogeneous groups (which is also the most common use case, so let's do it anyways).
+Let's perform differential expression analysis using edgeR. Remember that we are only interested in the effect of treatment. The litter or batch effect should be included in the model to absorb the variance explained by batch so that we get better sensitivity. If we didn't have litter matched experiment design, we can only compare control and treatment as two homogeneous groups (which is also the most common use case, so let's do it anyways).
 
 ```{r}
 design_nolitter <- model.matrix(~Treat)
@@ -284,7 +284,7 @@ Are certain pathways enriched in the DE genes?
 
 ```{r go, cache=TRUE}
 de_genes <- as.character(filter(de_df, FDR <= 0.05)$Gene)
-background_genes <- as.character(filter(de_df, logCPM >= log2(10))$Gene)
+background_genes <- as.character(filter(de_df, log2CPM >= log2(10))$Gene)
 go <- enrichGO(gene=de_genes,
                universe=background_genes,
                OrgDb = org.Mm.eg.db, keytype = 'SYMBOL',
